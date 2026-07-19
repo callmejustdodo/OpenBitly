@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OpenBitly</title>
+<style>
+  :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+  body { max-width: 780px; margin: 2rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.4rem; }
+  form { display: flex; gap: .5rem; flex-wrap: wrap; margin: 1rem 0; }
+  input { padding: .5rem; border: 1px solid #8884; border-radius: 6px; font: inherit; }
+  input[name=destination] { flex: 1 1 260px; }
+  input[name=slug] { width: 10rem; }
+  button { padding: .5rem .9rem; border: 1px solid #8884; border-radius: 6px; background: none; font: inherit; cursor: pointer; }
+  button:hover { background: #8882; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid #8883; }
+  td a { text-decoration: none; }
+  .dest { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .muted { opacity: .6; }
+  #status { min-height: 1.2rem; font-size: .85rem; }
+  #status.error { color: #d33; }
+</style>
+</head>
+<body>
+<h1>OpenBitly</h1>
+
+<form id="token-form">
+  <input name="token" type="password" placeholder="API token" required />
+  <button>Save token</button>
+</form>
+
+<form id="create-form">
+  <input name="destination" type="url" placeholder="https://example.com/very/long/url" required />
+  <input name="slug" placeholder="custom slug (optional)" pattern="[A-Za-z0-9_-]{1,64}" />
+  <button>Shorten</button>
+</form>
+
+<p id="status"></p>
+
+<table>
+  <thead><tr><th>Short</th><th>Destination</th><th>Visits</th><th></th></tr></thead>
+  <tbody id="links"></tbody>
+</table>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const status = (msg, isError) => {
+  const el = $("#status");
+  el.textContent = msg;
+  el.className = isError ? "error" : "";
+};
+
+let token = localStorage.getItem("openbitly_token") || "";
+
+async function api(path, opts = {}) {
+  const res = await fetch("/api/links" + path, {
+    ...opts,
+    headers: {
+      Authorization: "Bearer " + token,
+      ...(opts.body ? { "Content-Type": "application/json" } : {}),
+    },
+  });
+  if (res.status === 401) throw new Error("Unauthorized — check your API token");
+  if (!res.ok && res.status !== 204) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Request failed (" + res.status + ")");
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+async function refresh() {
+  if (!token) { status("Enter your API token to load links.", false); return; }
+  try {
+    const { links } = await api("");
+    $("#links").innerHTML = links.map((l) => `
+      <tr data-slug="${l.slug}">
+        <td><a href="/${l.slug}" target="_blank" rel="noopener">/${l.slug}</a></td>
+        <td class="dest" title="${l.destination}">${l.destination}</td>
+        <td>${l.visit_count}</td>
+        <td>
+          <button data-act="edit">Edit</button>
+          <a href="/${l.slug}/qr" target="_blank" rel="noopener"><button>QR</button></a>
+          <button data-act="copy">Copy</button>
+          <button data-act="delete">Delete</button>
+        </td>
+      </tr>`).join("");
+    status(links.length ? "" : "No links yet — create one above.", false);
+  } catch (e) { status(e.message, true); }
+}
+
+$("#token-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  token = new FormData(e.target).get("token");
+  localStorage.setItem("openbitly_token", token);
+  e.target.reset();
+  refresh();
+});
+
+$("#create-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  if (!data.slug) delete data.slug;
+  try {
+    await api("", { method: "POST", body: JSON.stringify(data) });
+    e.target.reset();
+    refresh();
+  } catch (err) { status(err.message, true); }
+});
+
+$("#links").addEventListener("click", async (e) => {
+  const act = e.target.dataset.act;
+  if (!act) return;
+  const row = e.target.closest("tr");
+  const slug = row.dataset.slug;
+  try {
+    if (act === "copy") {
+      await navigator.clipboard.writeText(location.origin + "/" + slug);
+      status("Copied " + location.origin + "/" + slug, false);
+    } else if (act === "edit") {
+      const dest = prompt("New destination for /" + slug, row.querySelector(".dest").title);
+      if (!dest) return;
+      await api("/" + slug, { method: "PATCH", body: JSON.stringify({ destination: dest }) });
+      refresh();
+    } else if (act === "delete") {
+      if (!confirm("Delete /" + slug + "?")) return;
+      await api("/" + slug, { method: "DELETE" });
+      refresh();
+    }
+  } catch (err) { status(err.message, true); }
+});
+
+refresh();
+</script>
+</body>
+</html>

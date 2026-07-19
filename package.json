@@ -1,0 +1,23 @@
+{
+  "name": "openbitly",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open source alternative to Bitly, running entirely on Cloudflare",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "db:migrate:local": "wrangler d1 migrations apply openbitly --local",
+    "db:migrate": "wrangler d1 migrations apply openbitly --remote"
+  },
+  "dependencies": {
+    "hono": "^4.6.0",
+    "uqr": "^0.1.2"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260714.1",
+    "typescript": "^5.6.0",
+    "wrangler": "^4.0.0"
+  }
+}

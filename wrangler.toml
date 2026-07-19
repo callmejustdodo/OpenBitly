@@ -1,0 +1,20 @@
+name = "openbitly"
+main = "src/index.ts"
+compatibility_date = "2026-07-01"
+
+# Dashboard static assets. Requests that match a file in ./public are served
+# directly; everything else (API, /:slug redirects) falls through to the Worker.
+[assets]
+directory = "public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "openbitly"
+# Run `wrangler d1 create openbitly` and paste the id here before deploying.
+# Local dev (`npm run dev`) works without a real id.
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+# Secrets (set with `wrangler secret put API_TOKEN`; use .dev.vars locally):
+#   API_TOKEN - bearer token required for all /api/* routes
