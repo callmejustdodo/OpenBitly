@@ -12,7 +12,7 @@
     "db:migrate": "wrangler d1 migrations apply openbitly --remote"
   },
   "dependencies": {
-    "hono": "^4.6.0",
+    "hono": "^4.13.5",
     "uqr": "^0.1.2"
   },
   "devDependencies": {
